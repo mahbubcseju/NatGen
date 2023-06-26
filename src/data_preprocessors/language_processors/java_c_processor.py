@@ -1,4 +1,5 @@
 import re
+import copy
 
 import numpy as np
 from tree_sitter import Node
@@ -828,8 +829,10 @@ class JavaAndCPPProcessor:
                     tokens.append('!=')
             else:
                 tokens.append(code[root.start_byte:root.end_byte].decode())
+        print(children)
         for child in children:
             child_type = str(child.type)
+            # print(child, child_type)
             if child.start_byte == first_block.start_byte and child.end_byte == first_block.end_byte and flagx == 0 \
                     and str(
                 child.type) == str(first_block.type):
@@ -954,6 +957,136 @@ class JavaAndCPPProcessor:
                     success = False
                     continue
         except:
+            pass
+        if not success:
+            code_string = cls.beautify_java_code(get_tokens(code_str, root))
+        return code_string, success
+
+
+    @classmethod
+    def get_tokens_for_multi_blockswap(cls, code, root, block_change, parent=None):
+        if isinstance(code, str):
+            code = code.encode()
+        assert isinstance(root, Node)
+        tokens = []
+        
+        if root.type == "comment":
+            return tokens, None
+        if "string" in str(root.type):
+            return [code[root.start_byte:root.end_byte].decode()], None
+        children = root.children
+        if len(children) == 0:
+            if root in block_change[2]:
+                op = code[root.start_byte:root.end_byte].decode()
+                if op == "<":
+                    tokens.append(">=")
+                elif op == ">":
+                    tokens.append('<=')
+                elif op == ">=":
+                    tokens.append('<')
+                elif op == "<=":
+                    tokens.append('>')
+                elif op == "!=":
+                    tokens.append('==')
+                elif op == "==":
+                    tokens.append('!=')
+            else:
+                tokens.append(code[root.start_byte:root.end_byte].decode())
+        if parent is not None and parent.type == 'switch_statement' and root.type=='compound_statement':
+            case_positions = []
+            for i, child in enumerate(children):
+                if child.type == 'case_statement' and ('break' in code[child.start_byte:child.end_byte].decode()):
+                    case_positions.append(i)
+            case_positions = case_positions[:-1]
+            copied = copy.deepcopy(case_positions)
+            np.random.shuffle(copied)
+            # print(code[case_positions[-1].start_byte: case_positions[-1].end_byte])
+            # print(children)
+            # print(root.type, code[root.start_byte:root.end_byte].decode())
+            for i, child in enumerate(children):
+                child_type = str(child.type)
+                # print(child, child_type)
+                if child_type == 'case_statement' and (i in copied):
+                    idx = copied.index(i)
+                    ts, _ = cls.get_tokens_for_multi_blockswap(code, children[case_positions[idx]], block_change, parent=root)
+                else:
+                    ts, _ = cls.get_tokens_for_multi_blockswap(code, child, block_change, parent=root)
+                tokens += ts
+        else:
+            for child in children:
+                child_type = str(child.type)
+                # print(child, child_type)
+                if child in block_change[0]:
+                    idx = block_change[0].index(child)
+                    ts, _ = cls.get_tokens_for_multi_blockswap(code, block_change[1][idx], block_change, parent=root)
+                else:
+                    ts, _ = cls.get_tokens_for_multi_blockswap(code, child, block_change, parent=root)
+                tokens += ts
+        # if root.type == 'declaration':
+        #     text = code[root.start_byte:root.end_byte].decode()
+        #     if '=' not in text:
+        # print(parent.type)
+        # if parent is not None and parent.type == 'switch_statement' and root.type=='compound_statement':
+        #     print(children)
+        #     print(root.type, code[root.start_byte:root.end_byte].decode())
+        return tokens, None
+
+
+    @classmethod
+    def multi_block_swap_c(cls, code_str, parser):
+        code = code_str.encode()
+        root = parser.parse_code(code)
+        operator_list = ['<', '>', '<=', '>=', '==', '!=']
+        pair = cls.extract_if_else(root, code, operator_list)
+        success = False
+        lst = list(range(0, len(pair)))
+        try:
+            block_change = [[], [], []]
+            for selected in lst:
+                clause = pair[selected][0]
+                des = pair[selected][1]
+                st = [des]
+                nodes = []
+                while len(st) > 0:
+                    root1 = st.pop()
+                    if len(root1.children) == 0:
+                        nodes.append(root1)
+                        if (code[root1.start_byte:root1.end_byte].decode()) in operator_list:
+                            opt_node = root1
+                            break
+                    for child in root1.children:
+                        st.append(child)
+                nodes = clause.children
+                flag = 0
+                first_block, second_block = None, None
+                for current_node in nodes:
+                    if str(current_node.type) == 'compound_statement':
+                        if flag == 0:
+                            first_block = current_node
+                            flag = 1
+                        else:
+                            second_block = current_node
+                if first_block and second_block:
+                    block_change[0].append(first_block)
+                    block_change[1].append(second_block)
+                    block_change[0].append(second_block)
+                    block_change[1].append(first_block)
+                    block_change[2].append(opt_node)
+            try:
+                code_list = \
+                    cls.get_tokens_for_multi_blockswap(code, root, block_change)[0]
+                code_string = ""
+                for w in code_list:
+                    code_string = code_string + w + " "
+                code_string = code_string.strip()
+                success = True
+            except Exception as E:
+                print("Exception: ", str(E))
+                success = False
+        except Exception as E:
+            print(code_str)
+            print(pair)
+            print("Exception occurred", str(E))
             pass
         if not success:
             code_string = cls.beautify_java_code(get_tokens(code_str, root))

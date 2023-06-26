@@ -26,7 +26,7 @@ def deletion(tokens, p):
 
 def token_infilling(tokens, p):
     new_tokens = []
-    max_infilling_len = round(int(p * len(tokens)) / 2.)
+    max_infilling_len = max(2, round(int(p * len(tokens)) / 2.))
     infilling_len = np.random.randint(1, max_infilling_len)
     start_index = np.random.uniform(high=(len(tokens) - infilling_len))
     end_index = start_index + infilling_len
