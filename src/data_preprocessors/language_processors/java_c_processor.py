@@ -962,7 +962,7 @@ class JavaAndCPPProcessor:
             code_string = cls.beautify_java_code(get_tokens(code_str, root))
         return code_string, success
 
-
+   
     @classmethod
     def get_tokens_for_multi_blockswap(cls, code, root, block_change, parent=None):
         if isinstance(code, str):
@@ -1000,9 +1000,6 @@ class JavaAndCPPProcessor:
             case_positions = case_positions[:-1]
             copied = copy.deepcopy(case_positions)
             np.random.shuffle(copied)
-            # print(code[case_positions[-1].start_byte: case_positions[-1].end_byte])
-            # print(children)
-            # print(root.type, code[root.start_byte:root.end_byte].decode())
             for i, child in enumerate(children):
                 child_type = str(child.type)
                 # print(child, child_type)
@@ -1011,6 +1008,10 @@ class JavaAndCPPProcessor:
                     ts, _ = cls.get_tokens_for_multi_blockswap(code, children[case_positions[idx]], block_change, parent=root)
                 else:
                     ts, _ = cls.get_tokens_for_multi_blockswap(code, child, block_change, parent=root)
+                tokens += ts
+        elif root.type == 'binary_expression' and len(children) == 3 and children[1].type in ('+', '*'):
+            for child in children[::-1]:
+                ts, _ = cls.get_tokens_for_multi_blockswap(code, child, block_change, parent=root)
                 tokens += ts
         else:
             for child in children:
@@ -1022,13 +1023,6 @@ class JavaAndCPPProcessor:
                 else:
                     ts, _ = cls.get_tokens_for_multi_blockswap(code, child, block_change, parent=root)
                 tokens += ts
-        # if root.type == 'declaration':
-        #     text = code[root.start_byte:root.end_byte].decode()
-        #     if '=' not in text:
-        # print(parent.type)
-        # if parent is not None and parent.type == 'switch_statement' and root.type=='compound_statement':
-        #     print(children)
-        #     print(root.type, code[root.start_byte:root.end_byte].decode())
         return tokens, None
 
 
@@ -1084,8 +1078,6 @@ class JavaAndCPPProcessor:
                 print("Exception: ", str(E))
                 success = False
         except Exception as E:
-            print(code_str)
-            print(pair)
             print("Exception occurred", str(E))
             pass
         if not success:
