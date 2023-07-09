@@ -42,7 +42,7 @@ tokenizer_function = {
 }
 
 
-class VarRenaming(TransformationBase):
+class VarReplacer(TransformationBase):
     def __init__(
             self,
             parser_path: str,
@@ -50,7 +50,7 @@ class VarRenaming(TransformationBase):
             var_file_path: str,
             rename_ratio: float,
     ):
-        super(VarRenaming, self).__init__(
+        super(VarReplacer, self).__init__(
             parser_path=parser_path,
             language=language,
         )
@@ -91,10 +91,8 @@ class VarRenaming(TransformationBase):
                 queue.append(child)
         return [name for name in var_names if name not in restricted]
 
-    def var_renaming(self, source_code_string, des_code_string):
-        source_root = self.parse_code(source_code_string)
-        source_original_code = self.tokenizer_function(source_code_string, source_root)
-        source_var_names = self.extract_var_names(source_root, source_code_string)
+
+    def var_replace(self, des_code_string, source_var_names):
         source_var_names = list(set(source_var_names))
 
         des_root = self.parse_code(des_code_string)
@@ -124,13 +122,17 @@ class VarRenaming(TransformationBase):
             return modified_root, modified_code_string, True
         else:
             return des_root, des_code_string, False
+    
+    def get_var_names(self, code: Union[str, bytes],):
+        root = self.parse_code(code)
+        return list(set(self.extract_var_names(root, code)))
 
     def transform_code(
             self,
-            source_code: Union[str, bytes],
-            des_code: Union[str, bytes], 
+            des_code: Union[str, bytes],
+            var_names,
     ) -> Tuple[str, object]:
-        root, code, success = self.var_renaming(source_code, des_code)
+        root, code, success = self.var_replace(des_code, var_names)
         code = re.sub("[ \n\t]+", " ", code)
         return code, {
             "success": success
@@ -233,26 +235,26 @@ if __name__ == '__main__':
     } 
     ?> 
     """
-    input_map = {
-        "java": ("java", java_code),
-        "c": ("c", c_code),
-        "cpp": ("cpp", c_code),
-        "cs": ("c_sharp", cs_code),
-        "js": ("javascript", js_code),
-        "python": ("python", python_code),
-        "php": ("php", php_code),
-        "ruby": ("ruby", ruby_code),
-        "go": ("go", go_code),
-    }
-    code_directory = os.path.realpath(os.path.join(os.path.realpath(__file__), '../../../..'))
-    parser_path = os.path.join(code_directory, "parser/languages.so")
-    for lang in ["c", "cpp", "java", "python", "php", "ruby", "js", "go", "cs"]:
-        lang, code = input_map[lang]
-        var_renamer = VarRenamer(
-            parser_path, lang
-        )
-        print(lang)
-        code, meta = var_renamer.transform_code(code)
-        print(re.sub("[ \t\n]+", " ", code))
-        print(meta)
-        print("=" * 150)
+    # input_map = {
+    #     "java": ("java", java_code),
+    #     "c": ("c", c_code),
+    #     "cpp": ("cpp", c_code),
+    #     "cs": ("c_sharp", cs_code),
+    #     "js": ("javascript", js_code),
+    #     "python": ("python", python_code),
+    #     "php": ("php", php_code),
+    #     "ruby": ("ruby", ruby_code),
+    #     "go": ("go", go_code),
+    # }
+    # code_directory = os.path.realpath(os.path.join(os.path.realpath(__file__), '../../../..'))
+    # parser_path = os.path.join(code_directory, "parser/languages.so")
+    # for lang in ["c", "cpp", "java", "python", "php", "ruby", "js", "go", "cs"]:
+    #     lang, code = input_map[lang]
+    #     var_renamer = VarRenamer(
+    #         parser_path, lang
+    #     )
+    #     print(lang)
+    #     code, meta = var_renamer.transform_code(code)
+    #     print(re.sub("[ \t\n]+", " ", code))
+    #     print(meta)
+    #     print("=" * 150)
