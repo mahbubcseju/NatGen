@@ -60,7 +60,7 @@ class TransformationBase:
         """
         tokens = []
         if root.type == "comment":
-            return tokens
+            return [code[root.start_byte:root.end_byte].decode()]
         if "string" in str(root.type):
             parent = root.parent
             if "list" not in str(parent.type) and len(parent.children) == 1:
@@ -105,7 +105,7 @@ class TransformationBase:
         """
         tokens, types = [], []
         if root.type == "comment":
-            return tokens, types
+            return [code[root.start_byte:root.end_byte].decode()], [[root.type]]
         if "string" in str(root.type):
             return [code[root.start_byte:root.end_byte].decode()], [["string"]]
         if len(root.children) == 0:
